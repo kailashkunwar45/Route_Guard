@@ -225,14 +225,17 @@ def _fixture_weather(points, start_utc, end_utc):
     times = [(start_utc + timedelta(hours=i)).strftime("%Y-%m-%dT%H:00") for i in range(max(hours, 50))]
     for idx, p in enumerate(points):
         key = (round_coord(p[0]), round_coord(p[1]))
-        # Vary weather: middle points windier on "Route B"-ish latitudes
+        # Vary weather along the corridor; some mid-route points are windy
         base_wind = 18 + (idx % 7) * 3
         winds, gusts, rains, showers, snows = [], [], [], [], []
         for i, _ in enumerate(times):
-            # spike severe wind around hour 10-14 for some points
-            w = base_wind + (20 if 10 <= i <= 14 and idx % 3 == 1 else 0)
-            if idx % 5 == 4 and 8 <= i <= 12:
-                w = 58  # No Travel wind for deliberate demo points
+            w = base_wind
+            # Hours 1-5 after departure: mid-corridor points hit No Travel wind
+            # so a heavy-load Loom demo can show "no safe route".
+            if 1 <= i <= 5 and idx % 4 == 2:
+                w = 58
+            elif 10 <= i <= 14 and idx % 3 == 1:
+                w = base_wind + 20  # High / Severe band for slider demos
             winds.append(w)
             gusts.append(w + 8)
             rains.append(0.02 if i % 6 else 0.0)

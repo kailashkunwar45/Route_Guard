@@ -1,6 +1,8 @@
 """Mapbox Geocoding via Django (server token)."""
 from __future__ import annotations
 
+from urllib.parse import quote
+
 import requests
 from django.conf import settings
 
@@ -19,7 +21,7 @@ def geocode_suggest(query: str, limit: int = 5) -> list[dict]:
     if not token:
         raise ProviderError("MAPBOX_SECRET_TOKEN is not configured", status_code=502)
 
-    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(q)}.json"
+    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{quote(q)}.json"
     try:
         resp = requests.get(
             url,
