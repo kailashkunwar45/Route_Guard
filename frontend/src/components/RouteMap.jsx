@@ -3,10 +3,12 @@ import mapboxgl from "mapbox-gl";
 import {
   buildLineGradientExpression,
   checkpointsToGeoJSON,
+  findCheckpoint,
   fitBoundsPadding,
   routeLineFeature,
 } from "../lib/geojson";
 import { formatLocal, RISK, riskMeta, ROUTE_COLORS, UNKNOWN } from "../lib/risk";
+import MapLegend from "./MapLegend";
 
 const CIRCLE_COLORS = [
   "case",
@@ -45,8 +47,8 @@ function popupHtml(props) {
 }
 
 /**
- * Mapbox map for routes + checkpoints, with optional heatmap mode.
- * Heatmap hour updates mutate a single GeoJSON source (no recreate / no network).
+ * Mapbox map for routes + checkpoints.
+ * Heatmap hour updates mutate one GeoJSON source via requestAnimationFrame — no network, no map recreate.
  */
 export default function RouteMap({
   token,
@@ -58,24 +60,29 @@ export default function RouteMap({
   mapMode = "checkpoints",
   hour = 0,
   riskMode = "eta",
+  hasAnalysis = false,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const popupRef = useRef(null);
   const fittedRef = useRef(false);
   const rafRef = useRef(0);
-  const pendingRef = useRef({ hour, riskMode });
   const routesRef = useRef(routes);
   const selectedRef = useRef(selectedRouteId);
   const onSelectRef = useRef(onSelectRoute);
   const onCpRef = useRef(onSelectCheckpoint);
+  const hourRef = useRef(hour);
+  const riskModeRef = useRef(riskMode);
+  const mapModeRef = useRef(mapMode);
   const routesKey = (routes || []).map((r) => r.id).join(",");
 
   routesRef.current = routes;
   selectedRef.current = selectedRouteId;
   onSelectRef.current = onSelectRoute;
   onCpRef.current = onSelectCheckpoint;
-  pendingRef.current = { hour, riskMode };
+  hourRef.current = hour;
+  riskModeRef.current = riskMode;
+  mapModeRef.current = mapMode;
 
   useEffect(() => {
     if (!token || !containerRef.current || mapRef.current) return;
@@ -87,10 +94,16 @@ export default function RouteMap({
       center: [-98.5, 39.8],
       zoom: 3.5,
       attributionControl: true,
+      fadeDuration: 0,
     });
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-    popupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: "240px" });
+    popupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: "260px", offset: 12 });
     mapRef.current = map;
+
+    const ro = new ResizeObserver(() => {
+      map.resize();
+    });
+    ro.observe(containerRef.current);
 
     map.on("load", () => {
       map.addSource("routes", {
@@ -113,19 +126,18 @@ export default function RouteMap({
         source: "routes",
         paint: {
           "line-color": ["get", "color"],
-          "line-width": 3,
-          "line-opacity": 0.25,
+          "line-width": 3.5,
+          "line-opacity": 0.28,
         },
         filter: ["!=", ["get", "selected"], true],
       });
-
       map.addLayer({
         id: "routes-selected",
         type: "line",
         source: "routes",
         paint: {
           "line-color": ["get", "color"],
-          "line-width": 5,
+          "line-width": 6,
           "line-opacity": 1,
         },
         filter: ["==", ["get", "selected"], true],
@@ -146,26 +158,26 @@ export default function RouteMap({
             1,
             0.2,
             3,
-            0.6,
+            0.55,
             5,
             1,
           ],
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 10, 1.2],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 10, 28],
-          "heatmap-opacity": 0.75,
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.45, 8, 0.85, 11, 1.25],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 16, 8, 24, 11, 32],
+          "heatmap-opacity": 0.72,
           "heatmap-color": [
             "interpolate",
             ["linear"],
             ["heatmap-density"],
             0,
             "rgba(0,0,0,0)",
-            0.2,
+            0.15,
             RISK[1].color,
-            0.4,
+            0.35,
             RISK[2].color,
-            0.6,
+            0.55,
             RISK[3].color,
-            0.8,
+            0.75,
             RISK[4].color,
             1,
             RISK[5].color,
@@ -179,8 +191,8 @@ export default function RouteMap({
         source: "heatmap-corridor",
         layout: { visibility: "none", "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-width": 6,
-          "line-opacity": 0.9,
+          "line-width": 7,
+          "line-opacity": 0.92,
           "line-gradient": [
             "interpolate",
             ["linear"],
@@ -198,11 +210,11 @@ export default function RouteMap({
         type: "circle",
         source: "checkpoints",
         paint: {
-          "circle-radius": 6,
+          "circle-radius": 6.5,
           "circle-color": CIRCLE_COLORS,
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
-          "circle-opacity": 0.95,
+          "circle-opacity": 0.96,
         },
       });
 
@@ -219,25 +231,29 @@ export default function RouteMap({
         if (seq != null && onCpRef.current) onCpRef.current(Number(seq));
         popupRef.current.setLngLat(f.geometry.coordinates).setHTML(popupHtml(f.properties)).addTo(map);
       });
-      map.on("mouseenter", "cp-circles", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "cp-circles", () => {
-        map.getCanvas().style.cursor = "";
-      });
-      map.on("mouseenter", "routes-dim", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "routes-dim", () => {
-        map.getCanvas().style.cursor = "";
+
+      ["cp-circles", "routes-dim", "routes-selected"].forEach((layer) => {
+        map.on("mouseenter", layer, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", layer, () => {
+          map.getCanvas().style.cursor = "";
+        });
       });
 
-      syncRoutes(map, routesRef.current, selectedRef.current);
-      syncCheckpoints(map, routesRef.current, selectedRef.current, pendingRef.current);
+      paintAll(
+        map,
+        routesRef.current,
+        selectedRef.current,
+        mapModeRef.current,
+        hourRef.current,
+        riskModeRef.current
+      );
     });
 
     return () => {
       cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
       popupRef.current?.remove();
       map.remove();
       mapRef.current = null;
@@ -249,28 +265,52 @@ export default function RouteMap({
     fittedRef.current = false;
   }, [routesKey]);
 
+  // Structural updates (routes / selection / tab) — immediate
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    syncRoutes(map, routes, selectedRouteId);
-    applyModeVisibility(map, mapMode);
-    syncCheckpoints(map, routes, selectedRouteId, { hour, riskMode });
-    syncCorridor(map, routes, selectedRouteId, { hour, riskMode }, mapMode);
+    paintAll(map, routes, selectedRouteId, mapMode, hour, riskMode);
     emphasizeCheckpoint(map, selectedCheckpointSeq);
-  }, [routes, selectedRouteId, mapMode, hour, riskMode, routesKey, selectedCheckpointSeq]);
+  }, [routes, selectedRouteId, mapMode, routesKey, selectedCheckpointSeq]);
 
+  // Slider / mode hour updates — single rAF, mutate sources only
   useEffect(() => {
-    if (mapMode !== "heatmap") return;
     const map = mapRef.current;
     if (!map) return;
-
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       if (!map.isStyleLoaded()) return;
-      syncCheckpoints(map, routesRef.current, selectedRef.current, { hour, riskMode });
-      syncCorridor(map, routesRef.current, selectedRef.current, { hour, riskMode }, "heatmap");
+      if (mapMode === "heatmap") {
+        syncCheckpoints(map, routesRef.current, selectedRef.current, hour, riskMode);
+        syncCorridor(map, routesRef.current, selectedRef.current, hour, riskMode, true);
+      } else {
+        syncCheckpoints(map, routesRef.current, selectedRef.current, hour, "eta");
+      }
     });
+    return () => cancelAnimationFrame(rafRef.current);
   }, [hour, riskMode, mapMode]);
+
+  // Ease camera to selected checkpoint
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || selectedCheckpointSeq == null) return;
+    const route =
+      (routes || []).find((r) => r.id === selectedRouteId) || routes?.[0] || null;
+    const cp = findCheckpoint(route, selectedCheckpointSeq);
+    if (!cp) return;
+    map.easeTo({
+      center: [cp.lon, cp.lat],
+      zoom: Math.max(map.getZoom(), 7.5),
+      duration: 450,
+    });
+  }, [selectedCheckpointSeq, selectedRouteId, routesKey]);
+
+  function paintAll(map, routeList, selectedId, mode, h, rMode) {
+    syncRoutes(map, routeList, selectedId);
+    applyModeVisibility(map, mode);
+    syncCheckpoints(map, routeList, selectedId, h, mode === "heatmap" ? rMode : "eta");
+    syncCorridor(map, routeList, selectedId, h, rMode, mode === "heatmap");
+  }
 
   function syncRoutes(map, routeList, selectedId) {
     const features = (routeList || []).map((route, idx) => {
@@ -288,7 +328,7 @@ export default function RouteMap({
         for (const c of f.geometry.coordinates) bounds.extend(c);
       }
       if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: fitBoundsPadding(), maxZoom: 10, duration: 600 });
+        map.fitBounds(bounds, { padding: fitBoundsPadding(), maxZoom: 10, duration: 700 });
         fittedRef.current = true;
       }
     }
@@ -298,22 +338,25 @@ export default function RouteMap({
     return (routeList || []).find((r) => r.id === selectedId) || routeList?.[0] || null;
   }
 
-  function syncCheckpoints(map, routeList, selectedId, { hour: h, riskMode: mode }) {
+  function syncCheckpoints(map, routeList, selectedId, h, mode) {
     const route = selectedRoute(routeList, selectedId);
-    const fc = checkpointsToGeoJSON(route?.checkpoints, mode, h);
     const src = map.getSource("checkpoints");
-    if (src) src.setData(fc);
+    if (src) src.setData(checkpointsToGeoJSON(route?.checkpoints, mode, h));
   }
 
-  function syncCorridor(map, routeList, selectedId, { hour: h, riskMode: mode }, modeName) {
+  function syncCorridor(map, routeList, selectedId, h, mode, enabled) {
     const route = selectedRoute(routeList, selectedId);
     const corridorSrc = map.getSource("heatmap-corridor");
-    if (!corridorSrc || !route) return;
-
-    const feature = routeLineFeature(route);
-    corridorSrc.setData({ type: "FeatureCollection", features: [feature] });
-
-    if (modeName === "heatmap" && map.getLayer("corridor-gradient")) {
+    if (!corridorSrc) return;
+    if (!route || !enabled) {
+      corridorSrc.setData({ type: "FeatureCollection", features: [] });
+      return;
+    }
+    corridorSrc.setData({
+      type: "FeatureCollection",
+      features: [routeLineFeature(route)],
+    });
+    if (map.getLayer("corridor-gradient")) {
       const expr = buildLineGradientExpression(
         route.checkpoints,
         route.metrics?.total_mi || route.distance_mi,
@@ -335,25 +378,47 @@ export default function RouteMap({
 
   function emphasizeCheckpoint(map, seq) {
     if (!map.getLayer("cp-circles")) return;
-    if (seq == null) {
-      map.setPaintProperty("cp-circles", "circle-radius", 6);
-      return;
-    }
-    map.setPaintProperty("cp-circles", "circle-radius", [
-      "case",
-      ["==", ["get", "sequence"], seq],
-      9,
-      6,
-    ]);
+    map.setPaintProperty(
+      "cp-circles",
+      "circle-radius",
+      seq == null
+        ? 6.5
+        : ["case", ["==", ["get", "sequence"], seq], 10, 6]
+    );
+    map.setPaintProperty(
+      "cp-circles",
+      "circle-stroke-width",
+      seq == null
+        ? 1.5
+        : ["case", ["==", ["get", "sequence"], seq], 2.5, 1.5]
+    );
   }
 
   if (!token) {
     return (
-      <div className="grid h-full place-items-center bg-slate-100 p-6 text-center text-sm text-slate-500">
-        Mapbox public token not configured. Set MAPBOX_PUBLIC_TOKEN on the backend.
+      <div className="grid h-full place-items-center bg-slate-100 p-6 text-center text-sm text-slate-600">
+        <div className="max-w-sm space-y-2">
+          <p className="font-medium text-slate-800">Map token missing</p>
+          <p>
+            Set <code className="rounded bg-white px-1 border border-slate-200">MAPBOX_PUBLIC_TOKEN</code>{" "}
+            on the backend. Analysis still works without the map.
+          </p>
+        </div>
       </div>
     );
   }
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {hasAnalysis && <MapLegend mode={mapMode} />}
+      {!hasAnalysis && (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <div className="rounded border border-slate-200 bg-white/95 px-4 py-3 text-center text-sm text-slate-600 shadow-sm">
+            Plan a route to plot corridors and checkpoints
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

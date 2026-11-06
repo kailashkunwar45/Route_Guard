@@ -112,8 +112,10 @@ export default function Workspace() {
   const plannerPanel = (
     <div className="space-y-3">
       <div>
-        <h1 className="text-base font-semibold text-slate-900">Route planner</h1>
-        <p className="text-xs text-slate-500">Compare weather risk along alternate routes.</p>
+        <h1 className="text-base font-semibold text-slate-900">RouteGuard planner</h1>
+        <p className="text-xs text-slate-500">
+          Safest corridor by weather, load, and time — map-first, no extra dashboards.
+        </p>
       </div>
       <PlannerForm onSubmit={handleAnalyze} loading={loading} />
       <ProfileDisclaimer note={analysis?.profile_note} />
@@ -127,7 +129,10 @@ export default function Workspace() {
       )}
       {analysis && !loadingExisting && (
         <>
-          <RecommendationBanner recommendation={analysis.recommendation} />
+          <RecommendationBanner
+            recommendation={analysis.recommendation}
+            routes={analysis.routes}
+          />
           {analysis.provider_count_message && (
             <p className="text-xs text-slate-500">{analysis.provider_count_message}</p>
           )}
@@ -159,15 +164,18 @@ export default function Workspace() {
               disabled={!analysis}
               onClick={() => setTab(t)}
               className={`rounded px-3 py-1.5 text-sm font-medium capitalize disabled:opacity-40 ${
-                tab === t ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                tab === t ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-100"
               }`}
             >
               {t}
             </button>
           ))}
-          <span className="ml-auto text-xs text-slate-400 lg:hidden">
-            {analysis ? `${analysis.origin?.name?.split(",")[0]} → ${analysis.destination?.name?.split(",")[0]}` : ""}
-          </span>
+          {analysis && (
+            <span className="ml-auto hidden truncate text-xs text-slate-500 sm:inline max-w-[45%]">
+              {analysis.origin?.name?.split(",")[0]} → {analysis.destination?.name?.split(",")[0]}
+              {analysis.timezone ? ` · ${analysis.timezone}` : ""}
+            </span>
+          )}
         </div>
 
         <div className="relative min-h-0 flex-1 bg-slate-100">
@@ -193,6 +201,7 @@ export default function Workspace() {
                 mapMode={tab === "heatmap" ? "heatmap" : "checkpoints"}
                 hour={hour}
                 riskMode={riskMode}
+                hasAnalysis={Boolean(analysis)}
               />
             </Suspense>
           )}

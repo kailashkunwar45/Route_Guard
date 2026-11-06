@@ -91,7 +91,19 @@ Logic lives in `api/services/` (`risk_engine`, `routing`, `weather`, `analyze`, 
 - Up to 3 distinct routes; truthful labels when using avoid-variants; never fabricates routes
 - Checkpoint risk from wind / rain / snow / load rules
 - Recommendation by lexicographic ranking (severe mi → high mi → avg risk → duration)
-- Map corridor + checkpoint layers; heatmap slider updates precomputed risk only (no network)
+- Map corridor + checkpoint **circle layers** (not DOM markers); click syncs with the table
+- Heatmap tab: Mapbox heatmap + risk-colored corridor `line-gradient` + circles on top
+- Heatmap slider reads `risk_by_hour[0..48]` only — `requestAnimationFrame`, no network, no map recreate
+- History list reopens saved analyses at `/analysis/:id`
+- Honest fixture banner when `USE_FIXTURES=true`
+
+## Map & heatmap performance notes
+
+- Map chunk is lazy-loaded (`React.lazy`)
+- Route/selection changes update GeoJSON sources in place
+- Hour slider updates are coalesced with `requestAnimationFrame`
+- Corridor uses `lineMetrics: true` so `line-gradient` can paint segment risk by distance
+- `ResizeObserver` keeps the map sized on panel layout changes
 
 ## Assumptions
 
@@ -111,18 +123,20 @@ Logic lives in `api/services/` (`risk_engine`, `routing`, `weather`, `analyze`, 
 - Heatmap is **checkpoint-based** weather risk — values are not interpolated between checkpoints.
 - Fixture mode is for development/demo; it is labeled in the UI and must not be presented as live data.
 
-## Loom outline (~7 min)
+## Loom outline (~7–8 min)
 
-1. Plan a Dallas → Austin route (load, interval, departure).
-2. Compare up to 3 routes and read the recommendation explanation.
-3. Map selection + checkpoint table / factor detail.
-4. Heatmap slider 0–48 h (arrival vs selected hour).
-5. Deliberate No Travel: heavy load + windy fixture window.
-6. Code tour: `risk_engine.py` + `api/tests/test_risk_engine.py`.
+Use **live Mapbox** if tokens are set; otherwise say clearly you are in fixture mode.
+
+1. **Plan (≈1 min)** — Dallas → Austin, departure in origin local time, load e.g. 20,000 lb, interval 25 mi. Submit and wait for cards + map fit-bounds.
+2. **Compare (≈1.5 min)** — Click each route card; show stacked risk-mile bar, badges, recommendation explanation (severe/high miles + time cost). Mention truck-profile disclaimer.
+3. **Map + checkpoints (≈1.5 min)** — Click a line and a checkpoint circle; show popup weather/ETA; open Checkpoints tab and the factor/load detail panel.
+4. **Heatmap slider (≈1.5 min)** — Switch to Heatmap; toggle “At expected arrival” vs “At selected hour”; drag 0–48 and point at corridor + legend (checkpoint-based, not interpolated).
+5. **No Travel (≈1 min)** — Re-run with heavy load (e.g. 50,000 lb) and/or windy window; show “No safe route…” warning, blocking checkpoints, least-restricted order wording.
+6. **Code tour (≈1.5 min)** — `backend/api/services/risk_engine.py` boundaries + load rules; `api/tests/test_risk_engine.py` table-driven cases; mention `risk_by_hour` precompute in analyze payload.
 
 ## Deployment
 
-- **Backend:** Render/Railway — set `DATABASE_URL` (Postgres), env vars above, `gunicorn config.wsgi`, run migrations.
-- **Frontend:** Vercel/Netlify — build `frontend`, set API CORS origins to the deployed site.
+- **Backend:** Render/Railway — set `DATABASE_URL` (Postgres), env vars above, `gunicorn config.wsgi`, run migrations. `Procfile` is included under `backend/`.
+- **Frontend:** Vercel/Netlify — build `frontend`, point API to the backend, set `CORS_ALLOWED_ORIGINS` to the deployed site.
 
-Postgres credentials can be supplied at the end of the project; until then SQLite is used locally.
+Local default is SQLite. Add Postgres credentials at deploy time via `DATABASE_URL`.

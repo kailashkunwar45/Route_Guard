@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { formatDuration, riskMeta, ROUTE_COLORS } from "../lib/risk";
 import RiskBadge from "./RiskBadge";
 
@@ -13,34 +14,37 @@ function StackedBar({ metrics }) {
     ["unknown_mi", null],
   ];
   return (
-    <div className="mt-2 flex h-2 w-full overflow-hidden rounded-sm border border-slate-200 bg-slate-100">
-      {parts.map(([key, level]) => {
-        const mi = metrics[key] || 0;
-        if (mi <= 0) return null;
-        const meta = riskMeta(level);
-        return (
-          <div
-            key={key}
-            title={`${meta.name}: ${mi.toFixed(1)} mi`}
-            style={{ width: `${(mi / total) * 100}%`, background: meta.color }}
-          />
-        );
-      })}
+    <div className="mt-2 space-y-1">
+      <div className="flex h-2.5 w-full overflow-hidden rounded-sm border border-slate-200 bg-slate-100">
+        {parts.map(([key, level]) => {
+          const mi = metrics[key] || 0;
+          if (mi <= 0) return null;
+          const meta = riskMeta(level);
+          return (
+            <div
+              key={key}
+              title={`${meta.name}: ${mi.toFixed(1)} mi`}
+              style={{ width: `${(mi / total) * 100}%`, background: meta.color }}
+            />
+          );
+        })}
+      </div>
+      <p className="text-[10px] leading-tight text-slate-500">
+        Sev {Number(metrics.severe_mi || 0).toFixed(1)} · High{" "}
+        {Number(metrics.high_mi || 0).toFixed(1)} · Unk{" "}
+        {Number(metrics.unknown_mi || 0).toFixed(1)} mi
+      </p>
     </div>
   );
 }
 
-export default function RouteCards({
-  routes,
-  recommendation,
-  selectedId,
-  onSelect,
-}) {
+function RouteCards({ routes, recommendation, selectedId, onSelect }) {
   if (!routes?.length) return null;
   const recId = recommendation?.recommended_route_id;
 
   return (
     <div className="space-y-2">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Routes</p>
       {routes.map((route, idx) => {
         const selected = route.id === selectedId;
         const noTravel = route.metrics?.has_no_travel;
@@ -51,18 +55,20 @@ export default function RouteCards({
             type="button"
             onClick={() => onSelect(route.id)}
             className={`w-full rounded border bg-white p-3 text-left transition ${
-              selected ? "border-primary ring-1 ring-primary" : "border-slate-200 hover:border-slate-300"
+              selected
+                ? "border-primary shadow-sm ring-1 ring-primary"
+                : "border-slate-200 hover:border-slate-300"
             }`}
           >
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
-                  className="h-3 w-3 rounded-sm"
+                  className="h-3 w-3 shrink-0 rounded-sm"
                   style={{ background: ROUTE_COLORS[idx % ROUTE_COLORS.length] }}
                 />
-                <span className="font-semibold text-sm">{route.label}</span>
+                <span className="truncate text-sm font-semibold">{route.label}</span>
               </div>
-              <span className="text-xs text-slate-500">
+              <span className="shrink-0 text-xs text-slate-500">
                 {route.distance_mi?.toFixed(1)} mi · {formatDuration(route.duration_s)}
               </span>
             </div>
@@ -88,7 +94,11 @@ export default function RouteCards({
                   Approximate timing
                 </span>
               )}
-              {avg != null && <RiskBadge level={Math.round(avg)} />}
+              {avg != null && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
+                  Avg <RiskBadge level={Math.round(avg)} />
+                </span>
+              )}
             </div>
           </button>
         );
@@ -96,3 +106,5 @@ export default function RouteCards({
     </div>
   );
 }
+
+export default memo(RouteCards);

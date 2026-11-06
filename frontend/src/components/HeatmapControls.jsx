@@ -1,22 +1,26 @@
+import { memo, useCallback, useRef } from "react";
 import { RISK, UNKNOWN } from "../lib/risk";
 import { countRisks } from "../lib/geojson";
 import RiskBadge from "./RiskBadge";
 
-export default function HeatmapControls({
-  hour,
-  onHourChange,
-  riskMode,
-  onRiskModeChange,
-  checkpoints,
-}) {
+function HeatmapControls({ hour, onHourChange, riskMode, onRiskModeChange, checkpoints }) {
   const counts = countRisks(checkpoints, riskMode, hour);
+  const dragging = useRef(false);
+
+  const handleInput = useCallback(
+    (e) => {
+      onHourChange(Number(e.target.value));
+    },
+    [onHourChange]
+  );
 
   return (
     <div className="space-y-3 rounded border border-slate-200 bg-white p-3 text-sm">
       <div>
         <p className="font-semibold text-slate-900">Checkpoint-based weather heatmap</p>
         <p className="mt-0.5 text-xs text-slate-500">
-          Risk is sampled at route checkpoints only — not a continuous weather field.
+          Slider updates precomputed risk only (no network). Values are not interpolated between
+          checkpoints.
         </p>
       </div>
 
@@ -48,7 +52,7 @@ export default function HeatmapControls({
       <label className="block">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
           <span>Hours after departure</span>
-          <span className="font-semibold text-slate-900">{hour}h</span>
+          <span className="font-semibold tabular-nums text-slate-900">{hour}h / 48h</span>
         </div>
         <input
           type="range"
@@ -57,9 +61,21 @@ export default function HeatmapControls({
           step={1}
           value={hour}
           disabled={riskMode !== "hour"}
-          onChange={(e) => onHourChange(Number(e.target.value))}
-          className="w-full accent-primary disabled:opacity-40"
+          onInput={handleInput}
+          onChange={handleInput}
+          onPointerDown={() => {
+            dragging.current = true;
+          }}
+          onPointerUp={() => {
+            dragging.current = false;
+          }}
+          className="rg-slider w-full disabled:opacity-40"
         />
+        <div className="mt-0.5 flex justify-between text-[10px] text-slate-400">
+          <span>0h</span>
+          <span>24h</span>
+          <span>48h</span>
+        </div>
       </label>
 
       <div>
@@ -77,19 +93,23 @@ export default function HeatmapControls({
           Checkpoint counts
           {riskMode === "hour" ? ` at +${hour}h` : " at expected arrival"}
         </p>
-        <ul className="grid grid-cols-2 gap-1 text-xs text-slate-700">
+        <ul className="grid grid-cols-2 gap-1 text-xs text-slate-700 sm:grid-cols-3">
           {[1, 2, 3, 4, 5].map((level) => (
             <li key={level} className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm" style={{ background: RISK[level].color }} />
-              {RISK[level].name}: {counts[level]}
+              {RISK[level].name}:{" "}
+              <span className="font-medium tabular-nums">{counts[level]}</span>
             </li>
           ))}
           <li className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: UNKNOWN.color }} />
-            {UNKNOWN.name}: {counts.unavailable}
+            {UNKNOWN.name}:{" "}
+            <span className="font-medium tabular-nums">{counts.unavailable}</span>
           </li>
         </ul>
       </div>
     </div>
   );
 }
+
+export default memo(HeatmapControls);

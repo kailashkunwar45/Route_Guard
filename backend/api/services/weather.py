@@ -228,14 +228,16 @@ def _fixture_weather(points, start_utc, end_utc):
         # Vary weather along the corridor; some mid-route points are windy
         base_wind = 18 + (idx % 7) * 3
         winds, gusts, rains, showers, snows = [], [], [], [], []
+        lat, lon = p[0], p[1]
+        # Mid-corridor band between Dallas (~32.8) and Austin (~30.3)
+        mid_corridor = 30.9 < lat < 32.2
         for i, _ in enumerate(times):
             w = base_wind
-            # Hours 1-5 after departure: mid-corridor points hit No Travel wind
-            # so a heavy-load Loom demo can show "no safe route".
-            if 1 <= i <= 5 and idx % 4 == 2:
+            # Hours 1-4: mid-corridor = No Travel wind (any load) for Loom demos
+            if mid_corridor and 1 <= i <= 4:
                 w = 58
             elif 10 <= i <= 14 and idx % 3 == 1:
-                w = base_wind + 20  # High / Severe band for slider demos
+                w = min(54, base_wind + 22)  # Severe band for heatmap slider demos
             winds.append(w)
             gusts.append(w + 8)
             rains.append(0.02 if i % 6 else 0.0)

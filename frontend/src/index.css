@@ -20,4 +20,48 @@ body {
   font-size: 12px;
   padding: 10px 12px;
   border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
+
+.mapboxgl-ctrl-group {
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+.rg-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  outline: none;
+}
+
+.rg-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #2563eb;
+  cursor: pointer;
+}
+
+.rg-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #2563eb;
+  cursor: pointer;
+}
+
+.rg-slider:disabled::-webkit-slider-thumb {
+  background: #94a3b8;
+  box-shadow: 0 0 0 1px #94a3b8;
+  cursor: not-allowed;
+}
+
