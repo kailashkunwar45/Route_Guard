@@ -12,8 +12,16 @@ load_dotenv(BASE_DIR.parent / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "true").lower() in ("1", "true", "yes")
 ALLOWED_HOSTS = [
-    h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()
+    h.strip()
+    for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,.onrender.com").split(",")
+    if h.strip()
 ]
+# Ensure render.com subdomains and any RENDER_EXTERNAL_HOSTNAME are accepted automatically
+RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+if ".onrender.com" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(".onrender.com")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -96,6 +104,7 @@ CORS_ALLOWED_ORIGINS = [
     ).split(",")
     if o.strip()
 ]
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "true").lower() in ("1", "true", "yes")
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
