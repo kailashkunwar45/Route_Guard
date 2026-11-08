@@ -24,9 +24,12 @@ def fetch_routes(origin: tuple[float, float], destination: tuple[float, float]) 
     if settings.USE_FIXTURES:
         return _fixture_routes(origin, destination)
 
-    token = settings.MAPBOX_SECRET_TOKEN
+    token = settings.MAPBOX_SECRET_TOKEN or settings.MAPBOX_PUBLIC_TOKEN
     if not token:
-        raise ProviderError("MAPBOX_SECRET_TOKEN is not configured", status_code=502)
+        raise ProviderError(
+            "Mapbox token not configured (set MAPBOX_PUBLIC_TOKEN or MAPBOX_SECRET_TOKEN)",
+            status_code=502,
+        )
 
     collected = []
     collected.extend(_request_directions(origin, destination, token, exclude=None, label_prefix="Route"))

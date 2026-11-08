@@ -59,11 +59,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# SQLite locally; set DATABASE_URL for Postgres at deploy time
+# Prefer DATABASE_URL (Postgres). Falls back to SQLite only if unset.
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
+        conn_health_checks=True,
     )
 }
 
@@ -102,6 +103,9 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "api.exceptions.routeguard_exception_handler",
 }
 
+# Optional sk. token for server calls. Free-trial pk. tokens work for Geocoding +
+# Directions too; prefer MAPBOX_SECRET_TOKEN when you have one, else fall back
+# to MAPBOX_PUBLIC_TOKEN at call time (see geocoding/routing services).
 MAPBOX_SECRET_TOKEN = os.getenv("MAPBOX_SECRET_TOKEN", "")
 MAPBOX_PUBLIC_TOKEN = os.getenv("MAPBOX_PUBLIC_TOKEN", "")
 USE_FIXTURES = os.getenv("USE_FIXTURES", "false").lower() in ("1", "true", "yes")

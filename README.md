@@ -53,8 +53,9 @@ venv\Scripts\python -m pytest api\tests -q
 | `ALLOWED_HOSTS` | backend | Host allowlist |
 | `CORS_ALLOWED_ORIGINS` | backend | Frontend origins |
 | `DATABASE_URL` | backend | Postgres URL (omit for SQLite) |
-| `MAPBOX_SECRET_TOKEN` | backend | Server-only Mapbox token |
-| `MAPBOX_PUBLIC_TOKEN` | backend | URL-restricted token exposed to the map |
+| `MAPBOX_SECRET_TOKEN` | backend | Optional `sk.` token for server APIs |
+| `MAPBOX_PUBLIC_TOKEN` | backend | URL-restricted `pk.` token for the map; also used for Geocoding/Directions if no `sk.` is set |
+| `VITE_MAPBOX_PUBLIC_TOKEN` | frontend | Same `pk.` token for Mapbox GL JS (never put an `sk.` here) |
 | `USE_FIXTURES` | backend | Honest fixture providers (no live network) |
 | `VITE_API_BASE` | frontend | Optional API base (default `/api`) |
 

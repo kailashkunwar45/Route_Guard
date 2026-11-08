@@ -50,7 +50,7 @@ def test_analyze_bad_input_400(client):
     assert "detail" in resp.json()
 
 
-@override_settings(USE_FIXTURES=False, MAPBOX_SECRET_TOKEN="test-token")
+@override_settings(USE_FIXTURES=False, MAPBOX_SECRET_TOKEN="test-token", MAPBOX_PUBLIC_TOKEN="")
 def test_provider_failure_502(client):
     dep = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
     payload = {

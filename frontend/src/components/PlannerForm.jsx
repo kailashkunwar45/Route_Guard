@@ -93,15 +93,25 @@ export default function PlannerForm({ onSubmit, loading }) {
           <option value={50}>50 miles</option>
         </select>
       </label>
-      {formError && <p className="text-xs text-red-600">{formError}</p>}
+      {formError && <p className="text-xs text-red-600 font-medium">{formError}</p>}
+      {!origin || !destination ? (
+        <p className="text-[11px] text-slate-500 italic">
+          💡 Select both origin and destination from the suggestions dropdown to enable route analysis.
+        </p>
+      ) : null}
       <button
         type="submit"
         disabled={!canSubmit}
-        className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50 transition-colors hover:bg-primary/90"
       >
         {loading && <Loader2 className="animate-spin" size={16} />}
-        {loading ? "Analyzing routes…" : "Analyze routes"}
+        {loading ? "Analyzing routes & weather (takes ~10s)…" : "Analyze routes"}
       </button>
+      {loading && (
+        <p className="text-center text-xs text-slate-500 animate-pulse">
+          Fetching alternative corridors and evaluating checkpoint wind & rain risk...
+        </p>
+      )}
     </form>
   );
 }

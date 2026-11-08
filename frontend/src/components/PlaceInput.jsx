@@ -39,40 +39,49 @@ export default function PlaceInput({ label, value, onChange, disabled }) {
   }, [query, value?.name]);
 
   return (
-    <label className="block text-sm">
+    <div className="relative text-sm">
       <span className="mb-1 block font-medium text-slate-700">{label}</span>
-      <input
-        className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
-        value={query}
-        disabled={disabled}
-        placeholder="Start typing a city or address"
-        onChange={(e) => {
-          setQuery(e.target.value);
-          onChange(null);
-        }}
-        onFocus={() => results.length && setOpen(true)}
-        autoComplete="off"
-      />
+      <div className="relative">
+        <input
+          className={`w-full rounded border bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-primary ${
+            value ? "border-green-400 bg-green-50/20" : "border-slate-300"
+          }`}
+          value={query}
+          disabled={disabled}
+          placeholder="Start typing a city or address"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            onChange(null);
+          }}
+          onFocus={() => results.length && setOpen(true)}
+          autoComplete="off"
+        />
+        {value && (
+          <span className="absolute right-2.5 top-2.5 text-xs text-green-600 font-bold">
+            ✓
+          </span>
+        )}
+      </div>
       {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
       {open && results.length > 0 && (
-        <ul className="mt-1 max-h-40 overflow-auto rounded border border-slate-200 bg-white text-sm shadow-sm">
+        <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white text-sm shadow-lg">
           {results.map((r) => (
             <li key={r.id || `${r.lat},${r.lon}`}>
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-left hover:bg-slate-50"
+                className="block w-full px-3 py-2 text-left hover:bg-blue-50 border-b border-slate-100 last:border-0"
                 onClick={() => {
                   onChange(r);
                   setQuery(r.name);
                   setOpen(false);
                 }}
               >
-                {r.name}
+                <span className="font-medium text-slate-800">{r.name}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
-    </label>
+    </div>
   );
 }

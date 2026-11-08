@@ -106,7 +106,8 @@ export default function Workspace() {
     setSelectedSeq(route?.checkpoints?.[0]?.sequence ?? null);
   }
 
-  const mapToken = config?.mapbox_public_token;
+  const mapToken =
+    config?.mapbox_public_token || import.meta.env.VITE_MAPBOX_PUBLIC_TOKEN || "";
   const showFixtures = analysis?.use_fixtures ?? config?.use_fixtures;
 
   const plannerPanel = (

@@ -17,9 +17,12 @@ def geocode_suggest(query: str, limit: int = 5) -> list[dict]:
     if settings.USE_FIXTURES:
         return _fixture_suggest(q)
 
-    token = settings.MAPBOX_SECRET_TOKEN
+    token = settings.MAPBOX_SECRET_TOKEN or settings.MAPBOX_PUBLIC_TOKEN
     if not token:
-        raise ProviderError("MAPBOX_SECRET_TOKEN is not configured", status_code=502)
+        raise ProviderError(
+            "Mapbox token not configured (set MAPBOX_PUBLIC_TOKEN or MAPBOX_SECRET_TOKEN)",
+            status_code=502,
+        )
 
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{quote(q)}.json"
     try:
